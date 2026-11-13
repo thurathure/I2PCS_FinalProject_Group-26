@@ -13,11 +13,11 @@ class FakeUmbrella:
 
 def battery_status(percent):
     if percent==0:
-        return "Change your battery", "yellow"
+        return "Change your battery", "red"
     elif percent <= 20:
-        return "Replace the battery soon", "red"
+        return "Replace the battery soon", "orange"
     elif 20<percent<=40 :                 
-        return "Battery is getting low", "orange"
+        return "Battery is getting low", "yellow"
     else:
         return "Battery is healthy", "green"
 
