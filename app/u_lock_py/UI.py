@@ -75,3 +75,23 @@ def small_label(text, color=MUTED):
 
 def tint(hex_color, opacity):
     return f"#{round(opacity * 255):02X}{hex_color.lstrip('#')}"
+
+def border(color, width=1):
+    side = ft.BorderSide(width, color)
+    return ft.Border(top=side, right=side, bottom=side, left=side)
+
+def card(content, on_click=None, bg=None, outline=None, radius=RADIUS_CARD, h=16, v=14):
+    return ft.Container(
+        content=content,
+        padding=ft.Padding(left=h, top=v, right=h, bottom=v),
+        bgcolor=bg or tint("#FFFFFF", 0.07),
+        border=border(outline or tint("#FFFFFF", 0.10)),
+        border_radius=radius,
+        on_click=on_click,
+    )
+
+def icon_box(icon, color, bg, size=40):
+    return ft.Container(
+        width=size, height=size, border_radius=12, bgcolor=bg, alignment=CENTER,
+        content=ft.Icon(icon, color=color, size=20),
+    )
