@@ -95,3 +95,30 @@ def icon_box(icon, color, bg, size=40):
         width=size, height=size, border_radius=12, bgcolor=bg, alignment=CENTER,
         content=ft.Icon(icon, color=color, size=20),
     )
+
+# =====================================================================
+# 3. DATA
+# =====================================================================
+class FakeUmbrella:
+    def __init__(self):
+        self.locked = True
+        self.battery = 82
+
+    def toggle(self):
+        self.locked = not self.locked
+
+    def drain(self):
+        self.battery = max(0, self.battery - 10)
+
+
+state = {
+    "tab": "control",
+    "condition": "thunderstorm",
+    "temp": 15,
+    "location": "Your location",
+    "wind": 18,
+    "humidity": 78,
+    "rain_time": "16:00",
+    "connected": True,
+    "banner_visible": True,
+}
