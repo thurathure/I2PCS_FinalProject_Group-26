@@ -1,4 +1,5 @@
 import flet as ft
+from UI import *
 from datetime import datetime
 class FakeUmbrella:
     def __init__(self):
@@ -12,11 +13,11 @@ class FakeUmbrella:
         self.battery = max(0, self.battery - 10)
 
 def battery_status(percent):
-    if percent==0:
+    if percent == 0:
         return "Change your battery", "red"
     elif percent <= 20:
         return "Replace the battery soon", "orange"
-    elif 20<percent<=40 :                 
+    elif percent <=40 :                 
         return "Battery is getting low", "yellow"
     else:
         return "Battery is healthy", "green"
