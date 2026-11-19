@@ -27,7 +27,7 @@ CITIES = {
     "Pingtung County":   (22.68, 120.48),
     "Yilan County":      (24.75, 121.75),
     "Hualien County":    (23.99, 121.61),
-    "Taitung":           (22.76, 121.14),  # Blank 1 filled in
+    "Taitung":           (22.76, 121.14),  
     "Penghu County":     (23.57, 119.58),
     "Kinmen County":     (24.44, 118.32),
     "Lienchiang County": (26.16, 119.95),
