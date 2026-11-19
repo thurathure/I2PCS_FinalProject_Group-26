@@ -72,3 +72,6 @@ def with_gaps(items, height=GAP_M):
 
 def small_label(text, color=MUTED):
     return ft.Text(text.upper(), size=10, weight=BOLD, color=color)
+
+def tint(hex_color, opacity):
+    return f"#{round(opacity * 255):02X}{hex_color.lstrip('#')}"
