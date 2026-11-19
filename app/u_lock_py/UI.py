@@ -42,3 +42,33 @@ WEATHER_TEXT = {
     "rain":         ("Rain", "Take your umbrella"),
     "thunderstorm": ("Thunderstorm", "Severe weather in your area"),
 }
+
+
+# =====================================================================
+# 2. TEMPLATE DESIGN
+# =====================================================================
+def battery_status(percent):
+    if percent == 0:
+        return "Change your battery", RED
+    elif percent <= 20:
+        return "Replace the battery soon", AMBER
+    elif percent <= 40:
+        return "Battery is getting low", YELLOW
+    else:
+        return "Battery is healthy", GREEN
+
+def gap(height):
+    return ft.Container(height=height)
+
+def with_gaps(items, height=GAP_M):
+    out = []
+    for item in items:
+        if item is None:
+            continue
+        if out:
+            out.append(gap(height))
+        out.append(item)
+    return out
+
+def small_label(text, color=MUTED):
+    return ft.Text(text.upper(), size=10, weight=BOLD, color=color)
