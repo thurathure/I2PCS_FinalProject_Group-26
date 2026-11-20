@@ -261,9 +261,33 @@ def advisory_card(state, act):
         bg=tint(AMBER, 0.10), outline=tint(AMBER, 0.30),
     )
 
+def weather_summary(state, act):
+    title, subtitle = WEATHER_TEXT[state["condition"]]
+    left = ft.Container(
+        on_click=act["cycle"],
+        content=ft.Column(
+            [
+                small_label(f"Today · {datetime.now().strftime('%H:%M')}"),
+                ft.Text(f"{state['temp']}°", size=72, weight=THIN, color=TEXT),
+            ],
+            spacing=0,
+        ),
+    )
+    right = ft.Column(
+        [
+            ft.Text(title, size=15, weight=BOLD, color=TEXT),
+            ft.Text(subtitle, size=11, color=MUTED, text_align=ft.TextAlign.RIGHT),
+        ],
+        spacing=2,
+        horizontal_alignment=ft.CrossAxisAlignment.END,
+    )
+    return ft.Row(
+        [left, right],
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        vertical_alignment=ft.CrossAxisAlignment.END,
+    )
 
-def conditions_card(s, act):
-    # SLOT: weather feature (wind, humidity, rain_time)
+def conditions_card(state, act):
     def stat(icon, value):
         return ft.Row([ft.Icon(icon, size=14, color=MUTED), ft.Text(value, size=11, color=MUTED)], spacing=4)
 
@@ -273,13 +297,13 @@ def conditions_card(s, act):
                 ft.Column(
                     [
                         small_label("Local conditions"),
-                        ft.Text(f"Rain expected around {s['rain_time']}", size=14, weight=SEMI, color=TEXT),
+                        ft.Text(f"Rain expected around {state['rain_time']}", size=14, weight=SEMI, color=TEXT),
                     ],
                     spacing=2,
                     expand=True,
                 ),
-                stat(ft.Icons.AIR, f"{s['wind']} km/h"),
-                stat(ft.Icons.WATER_DROP, f"{s['humidity']}%"),
+                stat(ft.Icons.AIR, f"{state['wind']} km/h"),
+                stat(ft.Icons.WATER_DROP, f"{state['humidity']}%"),
                 ft.Icon(ft.Icons.CHEVRON_RIGHT, color=MUTED, size=18),
             ],
             spacing=10,
@@ -288,30 +312,35 @@ def conditions_card(s, act):
     )
 
 
-def bottom_nav(s, act):
-    tabs = [("control", ft.Icons.HOME, "Control"),
-            ("weather", ft.Icons.CLOUD, "Weather"),
-            ("device", ft.Icons.SMARTPHONE, "Device")]
-    items = []
-    for key, icon, name in tabs:
-        on = s["tab"] == key
-        color = ICE if on else MUTED
-        items.append(
-            ft.Container(
-                on_click=lambda e, k=key: act["go"](k),
-                padding=ft.Padding(left=18, top=8, right=18, bottom=8),
-                border_radius=16,
-                bgcolor=tint(ICE, 0.12) if on else None,
-                content=ft.Column(
-                    [ft.Icon(icon, size=22, color=color), ft.Text(name, size=10, weight=SEMI, color=color)],
-                    spacing=2,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                ),
-            )
-        )
-    return ft.Container(
-        padding=ft.Padding(left=PAD, top=8, right=PAD, bottom=12),
-        bgcolor=tint(INK, 0.55),
-        border=ft.Border(top=ft.BorderSide(1, tint("#FFFFFF", 0.08))),
-        content=ft.Row(items, alignment=ft.MainAxisAlignment.SPACE_AROUND),
+def rain_banner(state, act):
+    if not state["banner_visible"] or state["condition"] not in ("rain", "thunderstorm"):
+        return None
+    body = ft.Column(
+        [
+            ft.Row(
+                [
+                    ft.Text("UmbrellaOS", size=11, weight=BOLD, color=TEXT),
+                    ft.Text("now", size=10, color=MUTED),
+                ],
+                spacing=8,
+            ),
+            ft.Text(
+                "Rain predicted today — Don’t forget to bring your umbrella!",
+                size=12, color=tint("#FFFFFF", 0.8),
+            ),
+        ],
+        spacing=2,
+        expand=True,
+    )
+    return card(
+        ft.Row(
+            [
+                icon_box(ft.Icons.CLOUD, ICE, tint("#FFFFFF", 0.08), size=36),
+                body,
+                ft.IconButton(ft.Icons.CLOSE, icon_size=16, icon_color=MUTED, on_click=act["close_banner"]),
+            ],
+            spacing=12,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+        ),
+        h=12, v=10,
     )
