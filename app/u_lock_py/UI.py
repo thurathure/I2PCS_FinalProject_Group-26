@@ -344,3 +344,41 @@ def rain_banner(state, act):
         ),
         h=12, v=10,
     )
+
+def bottom_nav(state, act):
+    tabs = [("control", ft.Icons.HOME, "Control"),
+            ("weather", ft.Icons.CLOUD, "Weather"),
+            ("device", ft.Icons.SMARTPHONE, "Device")]
+    items = []
+    for key, icon, name in tabs:
+        on = state["tab"] == key
+        color = ICE if on else MUTED
+        items.append(
+            ft.Container(
+                on_click=lambda e, k=key: act["go"](k),
+                padding=ft.Padding(left=18, top=8, right=18, bottom=8),
+                border_radius=16,
+                bgcolor=tint(ICE, 0.12) if on else None,
+                content=ft.Column(
+                    [ft.Icon(icon, size=22, color=color), ft.Text(name, size=10, weight=SEMI, color=color)],
+                    spacing=2,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+            )
+        )
+    return ft.Container(
+        padding=ft.Padding(left=PAD, top=8, right=PAD, bottom=12),
+        bgcolor=tint(INK, 0.55),
+        border=ft.Border(top=ft.BorderSide(1, tint("#FFFFFF", 0.08))),
+        content=ft.Row(items, alignment=ft.MainAxisAlignment.SPACE_AROUND),
+    )
+
+
+def placeholder_card(title, note):
+    return card(
+        ft.Column(
+            [small_label(title, ICE), ft.Text(note, size=13, color=tint("#FFFFFF", 0.75))],
+            spacing=4,
+        ),
+        outline=tint(ICE, 0.25),
+    )
