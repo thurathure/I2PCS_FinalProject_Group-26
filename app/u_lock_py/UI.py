@@ -13,6 +13,8 @@ AMBER = "#F5B041"
 GREEN = "#3DDC84"
 RED = "#FF5A5F"
 YELLOW = "#F4D35E"
+MINT = "#CFF7DE"
+MINT_DEEP = "#3DDC84"
 
 PAD = 20 
 GAP_S, GAP_M = 8, 16
@@ -110,7 +112,6 @@ class FakeUmbrella:
     def drain(self):
         self.battery = max(0, self.battery - 10)
 
-
 state = {
     "tab": "control",
     "condition": "thunderstorm",
@@ -122,3 +123,116 @@ state = {
     "connected": True,
     "banner_visible": True,
 }
+
+# =====================================================================
+# 4. SECTIONS
+# =====================================================================
+def header(state, act):
+    _, bat_color = battery_status(state["battery"])
+    left = ft.Row(
+        [
+            icon_box(ft.Icons.UMBRELLA, INK, ICE),
+            ft.Column(
+                [
+                    ft.Text("UmbrellaOS", size=15, weight=BOLD, color=TEXT),
+                    ft.Row(
+                        [
+                            ft.Text(state["location"], size=12, color=MUTED),
+                            ft.Icon(ft.Icons.CHEVRON_RIGHT, size=14, color=MUTED),
+                        ],
+                        spacing=0,
+                    ),
+                ],
+                spacing=2,
+            ),
+        ],
+        spacing=12,
+    )
+    battery_pill = card(
+        ft.Row(
+            [
+                ft.Text(f"{state['battery']}%", size=13, weight=BOLD, color=TEXT),
+                ft.Icon(ft.Icons.BATTERY_FULL, size=16, color=bat_color),
+            ],
+            spacing=6,
+        ),
+        radius=14, h=12, v=8,
+    )
+    return ft.Row(
+        [left, battery_pill],
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+
+def lock_section(state, act):
+    locked = state["locked"]
+    connected = state["connected"]
+
+    status = ft.Row(
+        [
+            ft.Container(
+                width=44, height=44, border_radius=22, alignment=CENTER,
+                bgcolor=tint("#FFFFFF", 0.06),
+                border=border(tint("#FFFFFF", 0.12)),
+                content=ft.Icon(ft.Icons.LOCK if locked else ft.Icons.LOCK_OPEN, color=ICE if locked else GREEN, size=20),
+            ),
+            ft.Column(
+                [
+                    small_label("Smart lock"),
+                    ft.Text("Locked" if locked else "Unlocked", size=26, weight=BOLD, color=TEXT),
+                ],
+                spacing=0,
+            ),
+        ],
+        alignment=ft.MainAxisAlignment.CENTER,
+        spacing=12,
+    )
+    if not connected:
+        colors = ["#4A5963", "#34424B"]
+    elif locked:
+        colors = [ICE, ICE_DEEP]
+    else:
+        colors = [MINT, MINT_DEEP]
+    action = "Unlock" if locked else "Lock"
+    hint = "Press to release" if locked else "Press to secure"
+    button = ft.Container(
+        width=200, height=200, border_radius=100, alignment=CENTER,
+        bgcolor=tint("#FFFFFF", 0.04),
+        border=border(tint("#FFFFFF", 0.08)),
+        content=ft.Container(
+            width=164, height=164, border_radius=82, alignment=CENTER,
+            gradient=ft.LinearGradient(begin=TOP, end=BOTTOM, colors=colors),
+            shadow=ft.BoxShadow(blur_radius=50, color=tint(ICE_DEEP, 0.35), offset=ft.Offset(0, 10)),
+            on_click=act["toggle"] if connected else None,
+            content=ft.Column(
+                [
+                    ft.Icon(ft.Icons.LOCK_OPEN if locked else ft.Icons.LOCK, color=INK, size=30),
+                    ft.Text(action, size=20, weight=BOLD, color=INK),
+                    ft.Text(hint, size=10, color=tint(INK, 0.6)),
+                ],
+                spacing=4,
+                alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+        ),
+    )
+
+    pill = card(
+        ft.Row(
+            [
+                ft.Container(width=8, height=8, border_radius=4, bgcolor=GREEN if connected else RED),
+                ft.Icon(ft.Icons.BLUETOOTH, size=14, color=MUTED),
+                ft.Text("Connected" if connected else "Disconnected", size=11, weight=SEMI, color=TEXT),
+            ],
+            spacing=8,
+            alignment=ft.MainAxisAlignment.CENTER,
+            tight=True,
+        ),
+        radius=999, h=14, v=8,
+    )
+
+    return ft.Column(
+        [status, gap(GAP_M), button, gap(GAP_M), pill],
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        spacing=0,
+    )
