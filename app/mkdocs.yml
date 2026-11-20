@@ -1,0 +1,7 @@
+site_name: FletUlockBle
+
+theme:
+  name: "material"
+
+plugins:
+  - mkdocstrings

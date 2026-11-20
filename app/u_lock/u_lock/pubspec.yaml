@@ -1,0 +1,26 @@
+name: u_lock
+description: U-Lock (UmbrellaOS) companion app for the smart-lock umbrella.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.1.2
+  # Pinned below 2.0: v2 adds a license parameter to connect().
+  flutter_blue_plus: ^1.35.0
+  permission_handler: ^11.3.1
+  geolocator: ^13.0.1
+  geocoding: ^3.0.0
+  http: ^1.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
