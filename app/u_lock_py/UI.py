@@ -382,3 +382,50 @@ def placeholder_card(title, note):
         ),
         outline=tint(ICE, 0.25),
     )
+
+# =====================================================================
+# 5. SCREENS
+# =====================================================================
+def control_screen(state, act):
+    return with_gaps([
+        header(state, act),
+        weather_summary(state, act),
+        rain_banner(state, act),
+        lock_section(state, act),
+        advisory_card(state, act),
+        conditions_card(state, act),
+    ])
+
+def weather_screen(state, act):
+    return with_gaps([
+        header(state, act),
+        weather_summary(state, act),
+        placeholder_card("Slot: hourly forecast", "Weather feature: next 12 hours go here."),
+        placeholder_card("Slot: rain prediction", "Weather feature: when rain starts and how likely."),
+        conditions_card(state, act),
+    ])
+
+def device_screen(state, act):
+    message, color = battery_status(state["battery"])
+    battery = card(
+        ft.Column(
+            [
+                small_label("Battery"),
+                ft.Text(f"{state['battery']}%", size=40, weight=BOLD, color=TEXT),
+                ft.ProgressBar(value=state["battery"] / 100, color=color, bgcolor=tint("#FFFFFF", 0.12), bar_height=8),
+                ft.Text(message, size=13, weight=SEMI, color=color),
+                ft.Text("Replace the non-rechargeable battery when it gets low.", size=11, color=MUTED),
+            ],
+            spacing=8,
+        )
+    )
+    drain = ft.Button("Drain battery (test)", on_click=act["drain"])
+    return with_gaps([
+        header(state, act),
+        battery,
+        drain,
+        placeholder_card("Slot: Bluetooth setup", "Bluetooth feature: scan, pair and connect to the umbrella."),
+    ])
+
+
+SCREENS = {"control": control_screen, "weather": weather_screen, "device": device_screen}
