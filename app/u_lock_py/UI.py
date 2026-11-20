@@ -236,3 +236,82 @@ def lock_section(state, act):
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         spacing=0,
     )
+
+def advisory_card(state, act):
+    # SLOT: weather feature. Shown only for severe weather.
+    if state["condition"] != "thunderstorm":
+        return None
+    return card(
+        ft.Row(
+            [
+                icon_box(ft.Icons.WARNING_AMBER, AMBER, tint(AMBER, 0.15)),
+                ft.Column(
+                    [
+                        small_label("Severe weather advisory", AMBER),
+                        ft.Text("Consider staying indoors today for your safety.", size=13, weight=SEMI, color=TEXT),
+                    ],
+                    spacing=2,
+                    expand=True,
+                ),
+                ft.Icon(ft.Icons.CHEVRON_RIGHT, color=MUTED, size=18),
+            ],
+            spacing=12,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
+        bg=tint(AMBER, 0.10), outline=tint(AMBER, 0.30),
+    )
+
+
+def conditions_card(s, act):
+    # SLOT: weather feature (wind, humidity, rain_time)
+    def stat(icon, value):
+        return ft.Row([ft.Icon(icon, size=14, color=MUTED), ft.Text(value, size=11, color=MUTED)], spacing=4)
+
+    return card(
+        ft.Row(
+            [
+                ft.Column(
+                    [
+                        small_label("Local conditions"),
+                        ft.Text(f"Rain expected around {s['rain_time']}", size=14, weight=SEMI, color=TEXT),
+                    ],
+                    spacing=2,
+                    expand=True,
+                ),
+                stat(ft.Icons.AIR, f"{s['wind']} km/h"),
+                stat(ft.Icons.WATER_DROP, f"{s['humidity']}%"),
+                ft.Icon(ft.Icons.CHEVRON_RIGHT, color=MUTED, size=18),
+            ],
+            spacing=10,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
+    )
+
+
+def bottom_nav(s, act):
+    tabs = [("control", ft.Icons.HOME, "Control"),
+            ("weather", ft.Icons.CLOUD, "Weather"),
+            ("device", ft.Icons.SMARTPHONE, "Device")]
+    items = []
+    for key, icon, name in tabs:
+        on = s["tab"] == key
+        color = ICE if on else MUTED
+        items.append(
+            ft.Container(
+                on_click=lambda e, k=key: act["go"](k),
+                padding=ft.Padding(left=18, top=8, right=18, bottom=8),
+                border_radius=16,
+                bgcolor=tint(ICE, 0.12) if on else None,
+                content=ft.Column(
+                    [ft.Icon(icon, size=22, color=color), ft.Text(name, size=10, weight=SEMI, color=color)],
+                    spacing=2,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+            )
+        )
+    return ft.Container(
+        padding=ft.Padding(left=PAD, top=8, right=PAD, bottom=12),
+        bgcolor=tint(INK, 0.55),
+        border=ft.Border(top=ft.BorderSide(1, tint("#FFFFFF", 0.08))),
+        content=ft.Row(items, alignment=ft.MainAxisAlignment.SPACE_AROUND),
+    )
