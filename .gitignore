@@ -6,12 +6,11 @@ __pycache__/
 # Flet build output
 app/u_lock_py/build/
 app/build/
-
 # Flutter generated files
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
-
 # Python package build output
 app/dist/
 app/src/flet_ulock_ble.egg-info/
+app/u_lock_py/flutter/
