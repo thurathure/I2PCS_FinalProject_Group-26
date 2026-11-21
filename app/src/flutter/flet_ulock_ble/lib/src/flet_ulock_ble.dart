@@ -3,7 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flet/flet.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 const String serviceUuid =
@@ -75,8 +75,11 @@ class _FletUlockBleControlState
   Future<void> _handlePythonMessage(Uint8List bytes) async {
     try {
       final message = jsonDecode(utf8.decode(bytes));
-
+      debugPrint("[U-LOCK BLE] Received action: ${message["action"]}");
       switch (message["action"]) {
+        case "check_bluetooth":
+          await _checkBluetooth();
+          break;
         case "scan":
           await _scan(message["timeout"] ?? 10);
           break;
@@ -100,25 +103,127 @@ class _FletUlockBleControlState
       });
     }
   }
-  Future<void> _requestBluetoothPermissions() async {
-    final scanStatus = await Permission.bluetoothScan.request();
-    final connectStatus = await Permission.bluetoothConnect.request();
 
-    if (!scanStatus.isGranted || !connectStatus.isGranted) {
-      throw Exception(
-        "Bluetooth permissions denied. "
-        "Please allow Nearby devices permission in Android Settings.",
+    Future<void> _checkBluetooth() async {
+    debugPrint("[U-LOCK BLE] Checking Bluetooth state...");
+
+    try {
+      final supported = await FlutterBluePlus.isSupported;
+
+      if (!supported) {
+        _sendToPython({
+          "type": "bluetooth_unsupported",
+          "message": "This phone does not support Bluetooth.",
+        });
+        return;
+      }
+
+      var state = FlutterBluePlus.adapterStateNow;
+
+      // Wait briefly if the initial state is unknown.
+      if (state == BluetoothAdapterState.unknown) {
+        state = await FlutterBluePlus.adapterState
+            .where((value) => value != BluetoothAdapterState.unknown)
+            .first
+            .timeout(const Duration(seconds: 5));
+      }
+
+      debugPrint("[U-LOCK BLE] Current Bluetooth state: $state");
+
+      if (state == BluetoothAdapterState.on) {
+        _sendToPython({
+          "type": "bluetooth_ready",
+        });
+        return;
+      }
+
+      if (!mounted) return;
+
+      final shouldTurnOn = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text("Bluetooth is turned off"),
+            content: const Text(
+              "Bluetooth is required to use U-Lock. "
+              "Would you like to turn it on?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext, false);
+                },
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext, true);
+                },
+                child: const Text("Turn on Bluetooth"),
+              ),
+            ],
+          );
+        },
       );
+
+      if (shouldTurnOn != true) {
+        _sendToPython({
+          "type": "bluetooth_off",
+        });
+        return;
+      }
+
+      debugPrint("[U-LOCK BLE] Requesting Bluetooth activation...");
+
+      await FlutterBluePlus.turnOn();
+
+      await FlutterBluePlus.adapterState
+          .where((value) => value == BluetoothAdapterState.on)
+          .first
+          .timeout(const Duration(seconds: 60));
+
+      debugPrint("[U-LOCK BLE] Bluetooth is now ON!");
+
+      _sendToPython({
+        "type": "bluetooth_ready",
+      });
+
+    } catch (e) {
+      debugPrint("[U-LOCK BLE] Bluetooth check error: $e");
+
+      _sendToPython({
+        "type": "error",
+        "message": e.toString(),
+      });
     }
   }
+  
+  Future<void> _requestBluetoothPermissions() async {
+  debugPrint("[U-LOCK BLE] Requesting Bluetooth permissions...");
 
+  final scanStatus = await Permission.bluetoothScan.request();
+  debugPrint("[U-LOCK BLE] Scan permission: $scanStatus");
+
+  final connectStatus = await Permission.bluetoothConnect.request();
+  debugPrint("[U-LOCK BLE] Connect permission: $connectStatus");
+
+  if (!scanStatus.isGranted || !connectStatus.isGranted) {
+    throw Exception(
+      "Bluetooth permissions denied. "
+      "Please allow Nearby devices permission in Android Settings.",
+    );
+  }
+
+  debugPrint("[U-LOCK BLE] Both permissions granted!");
+  }
 
   Future<void> _scan(int timeout) async {
+  await _requestBluetoothPermissions();
+
   if (!await FlutterBluePlus.isSupported) {
     throw Exception("Bluetooth LE is not supported");
   }
-
-  await _requestBluetoothPermissions();
 
     _sendToPython({
       "type": "scan_started",
