@@ -1,5 +1,6 @@
 import flet as ft
 from UI import *
+from flet_ulock_ble import FletUlockBle 
 
 def main(page: ft.Page):
     page.title = "U-Lock"
@@ -9,6 +10,7 @@ def main(page: ft.Page):
     page.window.height = 860
 
     umbrella = FakeUmbrella()
+    ble = FletUlockBle()
     root = ft.Container(expand=True)
 
     def render():
@@ -69,6 +71,7 @@ def main(page: ft.Page):
     }
 
     page.add(ft.SafeArea(content=root, expand=True))
+    page.add(ble)
     render()
 
 

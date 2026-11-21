@@ -9,7 +9,7 @@ authors = [
 ]
 dependencies = [
     "flet>=1.1.2",
-]
+]x`
 
 [dependency-groups]
 dev = [

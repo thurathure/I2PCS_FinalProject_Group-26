@@ -1,4 +1,4 @@
-
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -100,14 +100,25 @@ class _FletUlockBleControlState
       });
     }
   }
+  Future<void> _requestBluetoothPermissions() async {
+    final scanStatus = await Permission.bluetoothScan.request();
+    final connectStatus = await Permission.bluetoothConnect.request();
+
+    if (!scanStatus.isGranted || !connectStatus.isGranted) {
+      throw Exception(
+        "Bluetooth permissions denied. "
+        "Please allow Nearby devices permission in Android Settings.",
+      );
+    }
+  }
 
 
   Future<void> _scan(int timeout) async {
-    if (!await FlutterBluePlus.isSupported) {
-      throw Exception("Bluetooth LE is not supported");
-    }
+  if (!await FlutterBluePlus.isSupported) {
+    throw Exception("Bluetooth LE is not supported");
+  }
 
-    await _scanSubscription?.cancel();
+  await _requestBluetoothPermissions();
 
     _sendToPython({
       "type": "scan_started",
@@ -150,10 +161,12 @@ _sendToPython({
 
 
   Future<void> _connect(String deviceId) async {
+  await _requestBluetoothPermissions();
+
   _device = BluetoothDevice.fromId(deviceId);
 
   await _device!.connect(
-    license: License.free,
+    license: License.nonprofit,
     timeout: const Duration(seconds: 15),
   );
 

@@ -1,0 +1,23 @@
+[project]
+name = "u-lock"
+version = "0.1.0"
+description = "U-Lock smart umbrella application"
+requires-python = ">=3.10"
+dependencies = [
+    "flet>=1.1.2",
+    "flet-ulock-ble @ file:///C:/Git/I2P%20Final%20Project%202026/app/dist/flet_ulock_ble-0.1.0-py3-none-any.whl",
+]
+
+[tool.flet]
+org = "com.ulock"
+product = "U-Lock"
+
+[tool.flet.app]
+module = "main"
+
+[tool.flet.android.permission]
+"android.permission.BLUETOOTH_SCAN" = { usesPermissionFlags = "neverForLocation" }
+"android.permission.BLUETOOTH_CONNECT" = true
+"android.permission.BLUETOOTH" = { maxSdkVersion = "30" }
+"android.permission.BLUETOOTH_ADMIN" = { maxSdkVersion = "30" }
+"android.permission.ACCESS_FINE_LOCATION" = { maxSdkVersion = "30" }

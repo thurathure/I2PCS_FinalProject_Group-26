@@ -1,0 +1,22 @@
+* [33m71dec4e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mUI[m[33m, [m[1;31morigin/UI.py[m[33m, [m[1;31morigin/UI[m[33m, [m[1;32mUI.py[m[33m)[m Adding UI file for color and weather variables
+* [33m8623656[m[33m ([m[1;31morigin/master[m[33m, [m[1;32mmaster[m[33m)[m try weather API
+* [33m3620b6f[m add weather_tes.py file
+* [33mb296361[m Base Code Lock Unlock
+* [33mc8090ab[m Reset every experiment from watching GitHub tutorial. There is no code in main.py
+* [33m0f74c60[m testing branch
+* [33md01619b[m adding print function
+* [33mcc72b8a[m Test
+* [33m2714f07[m Update title and content of index.html
+* [33mf31f7b9[m Add initial HTML structure for the website
+* [33m73a3045[m Initial commit
+ [31m\[m 
+  * [33m9874467[m Add Monic
+* [33m74636d9[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m fix battery color status
+* [33m9b04b48[m add import datetime
+* [33mee96ee8[m test monic
+* [33m228f4b7[m Fix battery percentage indicator
+*   [33m98bc5d9[m Add battery indicator dummy
+[33m|[m[34m\[m  
+[33m|[m * [33ma987664[m add FakeUmbrella to replace Prototype Hardware
+[33m|[m * [33m33cc1b2[m Connected ajocxlyn to github
+[33m|[m * [33mf69eb3d[m Add files via upload
