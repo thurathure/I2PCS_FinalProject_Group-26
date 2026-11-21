@@ -557,16 +557,9 @@ def bluetooth_card(state, act):
     )
 
 
-def device_connection_card(state, act):
-    """
-    Displays nearby U-LOCK devices and manages the connection interface.
 
-    Python handles:
-    - Filtering discovered Bluetooth devices.
-    - Displaying signal strength.
-    - Tracking scanning and connection progress.
-    - Enabling or disabling connection actions.
-    """
+def device_connection_card(state, act):
+    """Display the U-LOCK connection status and scanner entry point."""
 
     connected = state.get("connected", False)
     scan_status = state.get("scan_status", "idle")
@@ -578,22 +571,6 @@ def device_connection_card(state, act):
         "No umbrella connected."
     )
 
-    # Only show devices whose advertised name identifies U-LOCK.
-    available_devices = []
-
-    for device in state.get("devices", []):
-        device_name = device.get("name", "")
-
-        if "U-LOCK" in device_name.upper():
-            available_devices.append(device)
-
-    # Sort devices by signal strength, strongest first.
-    available_devices.sort(
-        key=lambda device: device.get("rssi", -100),
-        reverse=True,
-    )
-
-    # Build the connection status section.
     if connected:
         connection_section = [
             ft.Row(
@@ -630,14 +607,6 @@ def device_connection_card(state, act):
         ]
 
     else:
-        # Determine the scan button's appearance and availability.
-        if scan_status == "scanning":
-            scan_label = "Scanning for devices..."
-        elif scan_status == "connecting":
-            scan_label = "Connecting..."
-        else:
-            scan_label = "Scan for U-LOCK"
-
         scan_disabled = (
             bluetooth_status != "on"
             or scan_status in ("scanning", "connecting")
@@ -650,80 +619,12 @@ def device_connection_card(state, act):
                 color=MUTED,
             ),
             ft.Button(
-                scan_label,
-                on_click=act["scan"],
+                "Find Bluetooth Devices",
+                icon=ft.Icons.BLUETOOTH_SEARCHING,
+                on_click=act["open_scanner"],
                 disabled=scan_disabled,
             ),
         ]
-
-        # Display every discovered U-LOCK device.
-        for device in available_devices:
-            device_id = device.get("device_id")
-            device_name = device.get("name", "Unknown U-LOCK")
-            rssi = device.get("rssi", -100)
-
-            if rssi >= -60:
-                signal_label = "Strong signal"
-            elif rssi >= -80:
-                signal_label = "Moderate signal"
-            else:
-                signal_label = "Weak signal"
-
-            device_card = ft.Container(
-                content=ft.Row(
-                    [
-                        ft.Column(
-                            [
-                                ft.Text(
-                                    device_name,
-                                    size=14,
-                                    weight=BOLD,
-                                    color=TEXT,
-                                ),
-                                ft.Text(
-                                    f"{signal_label} ({rssi} dBm)",
-                                    size=11,
-                                    color=MUTED,
-                                ),
-                            ],
-                            spacing=4,
-                            expand=True,
-                        ),
-                        ft.Button(
-                            "Connect",
-                            on_click=(
-                                lambda e, selected_id=device_id:
-                                act["connect"](selected_id)
-                            ),
-                            disabled=(
-                                not device_id
-                                or scan_status == "connecting"
-                            ),
-                        ),
-                    ],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    spacing=8,
-                ),
-                padding=12,
-                border=ft.Border.all(
-                    1,
-                    tint("#FFFFFF", 0.12),
-                ),
-                border_radius=12,
-            )
-
-            connection_section.append(device_card)
-
-        # Give the user feedback if scanning found no U-LOCK device.
-        if scan_status == "complete" and not available_devices:
-            connection_section.append(
-                ft.Text(
-                    "No U-LOCK device found. Make sure your umbrella "
-                    "is powered on and try scanning again.",
-                    size=12,
-                    color=AMBER,
-                )
-            )
 
     return card(
         ft.Column(
@@ -756,6 +657,7 @@ def device_connection_card(state, act):
             spacing=12,
         )
     )
+
 
 def device_screen(state, act):
     message, color = battery_status(state["battery"])

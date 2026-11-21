@@ -59,31 +59,32 @@ class LockController:
         self.scan_complete = False
         self.last_error = None
 
+    
     def add_device(self, device_id, name, rssi):
         """
-        Register a discovered U-LOCK device.
+        Register every discovered Bluetooth LE device.
 
-        Devices are identified by their Bluetooth device ID.
-        Repeated advertisements update the existing device.
+        Devices are identified by their Bluetooth ID.
+        Repeated advertisements update existing device information.
         """
 
         if not device_id:
             return False
 
-        if not name:
-            return False
-
-        if "U-LOCK" not in name.upper():
-            return False
+        device_name = name.strip() if isinstance(name, str) else ""
+        if not device_name:
+            device_name = "Unknown device"
 
         device = {
             "device_id": device_id,
-            "name": name,
+            "name": device_name,
             "rssi": int(rssi),
+            "is_ulock": "U-LOCK" in device_name.upper(),
         }
 
         self.devices[device_id] = device
         return True
+
 
     def finish_scan(self):
         """Mark the current scan as completed."""
@@ -104,8 +105,9 @@ class LockController:
     # CONNECTION MANAGEMENT
     # --------------------------------------------------
 
+    
     def start_connection(self, device_id):
-        """Validate and prepare a connection request."""
+        """Validate and prepare a U-LOCK connection request."""
 
         if self.connected:
             raise RuntimeError(
@@ -122,11 +124,19 @@ class LockController:
                 "The selected device was not found in the scan results."
             )
 
+        device = self.devices[device_id]
+
+        if not device.get("is_ulock", False):
+            raise ValueError(
+                "This device is not identified as a U-LOCK device."
+            )
+
         self.device_id = device_id
-        self.device_name = self.devices[device_id]["name"]
+        self.device_name = device["name"]
 
         self.connecting = True
         self.last_error = None
+
 
     def connection_succeeded(self, device_id, device_name=None):
         """Update the controller after ESP32 confirms connection."""

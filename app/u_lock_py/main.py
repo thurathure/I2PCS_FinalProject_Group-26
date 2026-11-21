@@ -45,6 +45,7 @@ def main(page: ft.Page):
     )
     umbrella = FakeUmbrella()
     root = ft.Container(expand=True)
+    scanner_open = False
 
     def on_check_bluetooth(e):
         if not ble_ready:
@@ -163,6 +164,176 @@ def main(page: ft.Page):
             print("BLE disconnect requested")
         except Exception as error:
             print(f"BLE disconnect error: {error}")
+        
+    def close_scanner(e=None):
+        nonlocal scanner_open
+
+        if scanner_open:
+            scanner_open = False
+            page.pop_dialog()
+
+    def build_scanner_content():
+        devices = state.get("devices", [])
+        scan_status = state.get("scan_status", "idle")
+
+        device_rows = []
+
+        if not devices:
+            if scan_status == "scanning":
+                empty_message = "Searching for nearby devices..."
+            elif scan_status == "complete":
+                empty_message = "No Bluetooth devices found."
+            else:
+                empty_message = "Press Start Scan to find devices."
+
+            device_rows.append(
+                ft.Container(
+                    content=ft.Text(
+                        empty_message,
+                        color=MUTED,
+                        size=13,
+                    ),
+                    padding=20,
+                    alignment=ft.Alignment.CENTER,
+                )
+            )
+
+        for device in devices:
+            device_id = device.get("device_id")
+            device_name = device.get("name", "Unknown device")
+            rssi = device.get("rssi", -100)
+
+            is_ulock = device.get(
+                "is_ulock",
+                "U-LOCK" in device_name.upper(),
+            )
+
+            if rssi >= -60:
+                signal_label = "Strong"
+            elif rssi >= -80:
+                signal_label = "Moderate"
+            else:
+                signal_label = "Weak"
+
+            device_info = [
+                ft.Text(
+                    device_name,
+                    size=14,
+                    weight=BOLD,
+                    color=TEXT,
+                ),
+                ft.Text(
+                    f"{device_id}",
+                    size=10,
+                    color=MUTED,
+                ),
+                ft.Text(
+                    f"{signal_label} signal ({rssi} dBm)",
+                    size=11,
+                    color=MUTED,
+                ),
+                ft.Text(
+                    "U-LOCK device" if is_ulock else "Other Bluetooth device",
+                    size=11,
+                    color=GREEN if is_ulock else MUTED,
+                ),
+            ]
+
+            device_actions = []
+
+            if is_ulock:
+                device_actions.append(
+                    ft.Button(
+                        "Connect",
+                        disabled=scan_status == "connecting",
+                        on_click=(
+                            lambda e, selected_id=device_id:
+                            on_connect(selected_id)
+                        ),
+                    )
+                )
+
+            device_rows.append(
+                ft.Container(
+                    content=ft.Row(
+                        [
+                            ft.Column(
+                                device_info,
+                                spacing=3,
+                                expand=True,
+                            ),
+                            *device_actions,
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    ),
+                    padding=12,
+                    border=ft.Border.all(
+                        1,
+                        tint("#FFFFFF", 0.12),
+                    ),
+                    border_radius=12,
+                )
+            )
+
+        return ft.Container(
+            width=340,
+            content=ft.Column(
+                [
+                    ft.Text(
+                        f"Discovered devices: {len(devices)}",
+                        size=12,
+                        color=MUTED,
+                    ),
+                    ft.Button(
+                        "Scanning..." if scan_status == "scanning"
+                        else "Start Scan",
+                        icon=ft.Icons.BLUETOOTH_SEARCHING,
+                        on_click=on_scan,
+                        disabled=(
+                            scan_status in ("scanning", "connecting")
+                            or state.get("bluetooth_status") != "on"
+                        ),
+                    ),
+                    ft.Column(
+                        device_rows,
+                        spacing=8,
+                        scroll=ft.ScrollMode.AUTO,
+                        height=340,
+                    ),
+                ],
+                spacing=12,
+            ),
+        )
+
+    scanner_dialog = ft.AlertDialog(
+        modal=True,
+        title=ft.Text("Bluetooth Devices"),
+        content=ft.Container(width=340),
+        actions=[
+            ft.Button(
+                "Close",
+                on_click=close_scanner,
+            ),
+        ],
+    )
+
+    def on_open_scanner(e):
+        nonlocal scanner_open
+
+        if state.get("bluetooth_status") != "on":
+            state["connection_message"] = (
+                "Turn on Bluetooth before scanning."
+            )
+            render()
+            return
+
+        scanner_open = True
+        scanner_dialog.content = build_scanner_content()
+
+        page.show_dialog(scanner_dialog)
+        page.update()
+
 
     def render():
         s = dict(state)
@@ -188,6 +359,11 @@ def main(page: ft.Page):
             ],
             spacing=0,
         )
+
+        # Refresh the scanner popup whenever BLE state changes.
+        if scanner_open:
+            scanner_dialog.content = build_scanner_content()
+
         page.update()
 
     async def poll_ble_messages():
@@ -206,7 +382,11 @@ def main(page: ft.Page):
                     device_id = message.get("device_id")
                     device_name = message.get("name") or ""
                     rssi = message.get("rssi", -100)
-
+                    print(
+                        f"[BLE SCAN] Found: "
+                        f"{device_name or 'Unnamed device'} | "
+                        f"ID: {device_id} | RSSI: {rssi} dBm"
+                    )
                     try:
                         # Let Python validate and register the device.
                         device_added = lock_controller.add_device(
@@ -245,6 +425,7 @@ def main(page: ft.Page):
 
                 
                 elif msg_type == "connected":
+                    close_scanner()
                     device_id = message.get("device_id")
                     device_name = message.get("device_name") or "U-LOCK"
 
@@ -415,6 +596,7 @@ def main(page: ft.Page):
         "scan": on_scan,
         "connect": on_connect,
         "disconnect": on_disconnect,
+        "open_scanner": on_open_scanner,
     }
 
     page.add(ft.SafeArea(content=root, expand=True))
