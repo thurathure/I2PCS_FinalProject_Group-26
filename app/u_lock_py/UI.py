@@ -122,6 +122,8 @@ state = {
     "rain_time": "16:00",
     "connected": True,
     "banner_visible": True,
+    "bluetooth_status": "unknown",
+    "bluetooth_message": "Bluetooth has not been checked yet.",
 }
 
 # =====================================================================
@@ -405,6 +407,78 @@ def weather_screen(state, act):
         conditions_card(state, act),
     ])
 
+
+def bluetooth_card(state, act):
+    status = state["bluetooth_status"]
+
+    if status == "on":
+        title = "Bluetooth is ON"
+        message = "Your phone's Bluetooth is ready."
+        color = GREEN
+    elif status == "off":
+        title = "Bluetooth is OFF"
+        message = "Turn on Bluetooth to use your umbrella."
+        color = RED
+    elif status == "checking":
+        title = "Checking Bluetooth..."
+        message = "Checking your phone's Bluetooth status."
+        color = ICE
+    elif status == "unsupported":
+        title = "Bluetooth unavailable"
+        message = "This phone does not support Bluetooth."
+        color = RED
+    elif status == "error":
+        title = "Bluetooth check failed"
+        message = state["bluetooth_message"]
+        color = AMBER
+    else:
+        title = "Bluetooth not checked"
+        message = state["bluetooth_message"]
+        color = MUTED
+
+    return card(
+        ft.Column(
+            [
+                ft.Row(
+                    [
+                        icon_box(
+                            ft.Icons.BLUETOOTH,
+                            color,
+                            tint(color, 0.15),
+                        ),
+                        ft.Column(
+                            [
+                                small_label("Phone Bluetooth"),
+                                ft.Text(
+                                    title,
+                                    size=16,
+                                    weight=BOLD,
+                                    color=TEXT,
+                                ),
+                            ],
+                            spacing=3,
+                            expand=True,
+                        ),
+                    ],
+                    spacing=12,
+                ),
+                ft.Text(
+                    message,
+                    size=12,
+                    color=MUTED,
+                ),
+                ft.Button(
+                    "Check again",
+                    on_click=act["check_bluetooth"],
+                    disabled=(status == "checking"),
+                ),
+            ],
+            spacing=12,
+        ),
+        outline=tint(color, 0.30),
+    )
+
+
 def device_screen(state, act):
     message, color = battery_status(state["battery"])
     battery = card(
@@ -424,7 +498,7 @@ def device_screen(state, act):
         header(state, act),
         battery,
         drain,
-        placeholder_card("Slot: Bluetooth setup", "Bluetooth feature: scan, pair and connect to the umbrella."),
+        bluetooth_card(state, act),
     ])
 
 
