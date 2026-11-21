@@ -167,21 +167,50 @@ def header(state, act):
     )
 
 def lock_section(state, act):
+    
     locked = state["locked"]
     connected = state["connected"]
+    lock_known = locked is not None
+
+    if not connected:
+        status_text = "Disconnected"
+        status_color = MUTED
+    elif not lock_known:
+        status_text = "Waiting for lock status..."
+        status_color = AMBER
+    elif locked:
+        status_text = "Locked"
+        status_color = ICE
+    else:
+        status_text = "Unlocked"
+        status_color = GREEN
 
     status = ft.Row(
         [
             ft.Container(
-                width=44, height=44, border_radius=22, alignment=CENTER,
+                width=44,
+                height=44,
+                border_radius=22,
+                alignment=CENTER,
                 bgcolor=tint("#FFFFFF", 0.06),
                 border=border(tint("#FFFFFF", 0.12)),
-                content=ft.Icon(ft.Icons.LOCK if locked else ft.Icons.LOCK_OPEN, color=ICE if locked else GREEN, size=20),
+                content=ft.Icon(
+                    ft.Icons.LOCK if locked is True
+                    else ft.Icons.LOCK_OPEN if locked is False
+                    else ft.Icons.HELP_OUTLINE,
+                    color=status_color,
+                    size=20,
+                ),
             ),
             ft.Column(
                 [
                     small_label("Smart lock"),
-                    ft.Text("Locked" if locked else "Unlocked", size=26, weight=BOLD, color=TEXT),
+                    ft.Text(
+                        status_text,
+                        size=20,
+                        weight=BOLD,
+                        color=TEXT,
+                    ),
                 ],
                 spacing=0,
             ),
@@ -189,28 +218,75 @@ def lock_section(state, act):
         alignment=ft.MainAxisAlignment.CENTER,
         spacing=12,
     )
-    if not connected:
+
+    if not connected or not lock_known:
         colors = ["#4A5963", "#34424B"]
     elif locked:
         colors = [ICE, ICE_DEEP]
     else:
         colors = [MINT, MINT_DEEP]
-    action = "Unlock" if locked else "Lock"
-    hint = "Press to release" if locked else "Press to secure"
+
+    action = (
+        "Waiting..."
+        if not lock_known
+        else "Unlock" if locked
+        else "Lock"
+    )
+
+    hint = (
+        "Waiting for ESP32"
+        if not lock_known
+        else "Press to release" if locked
+        else "Press to secure"
+    )
+
     button = ft.Container(
-        width=200, height=200, border_radius=100, alignment=CENTER,
+        width=200,
+        height=200,
+        border_radius=100,
+        alignment=CENTER,
         bgcolor=tint("#FFFFFF", 0.04),
         border=border(tint("#FFFFFF", 0.08)),
         content=ft.Container(
-            width=164, height=164, border_radius=82, alignment=CENTER,
-            gradient=ft.LinearGradient(begin=TOP, end=BOTTOM, colors=colors),
-            shadow=ft.BoxShadow(blur_radius=50, color=tint(ICE_DEEP, 0.35), offset=ft.Offset(0, 10)),
-            on_click=act["toggle"] if connected else None,
+            width=164,
+            height=164,
+            border_radius=82,
+            alignment=CENTER,
+            gradient=ft.LinearGradient(
+                begin=TOP,
+                end=BOTTOM,
+                colors=colors,
+            ),
+            shadow=ft.BoxShadow(
+                blur_radius=50,
+                color=tint(ICE_DEEP, 0.35),
+                offset=ft.Offset(0, 10),
+            ),
+            on_click=(
+                act["toggle"]
+                if connected and lock_known
+                else None
+            ),
             content=ft.Column(
                 [
-                    ft.Icon(ft.Icons.LOCK_OPEN if locked else ft.Icons.LOCK, color=INK, size=30),
-                    ft.Text(action, size=20, weight=BOLD, color=INK),
-                    ft.Text(hint, size=10, color=tint(INK, 0.6)),
+                    ft.Icon(
+                        ft.Icons.LOCK_OPEN if locked is True
+                        else ft.Icons.LOCK if locked is False
+                        else ft.Icons.HOURGLASS_EMPTY,
+                        color=INK,
+                        size=30,
+                    ),
+                    ft.Text(
+                        action,
+                        size=20,
+                        weight=BOLD,
+                        color=INK,
+                    ),
+                    ft.Text(
+                        hint,
+                        size=10,
+                        color=tint(INK, 0.6),
+                    ),
                 ],
                 spacing=4,
                 alignment=ft.MainAxisAlignment.CENTER,
@@ -218,6 +294,8 @@ def lock_section(state, act):
             ),
         ),
     )
+
+
 
     pill = card(
         ft.Row(
@@ -479,6 +557,206 @@ def bluetooth_card(state, act):
     )
 
 
+def device_connection_card(state, act):
+    """
+    Displays nearby U-LOCK devices and manages the connection interface.
+
+    Python handles:
+    - Filtering discovered Bluetooth devices.
+    - Displaying signal strength.
+    - Tracking scanning and connection progress.
+    - Enabling or disabling connection actions.
+    """
+
+    connected = state.get("connected", False)
+    scan_status = state.get("scan_status", "idle")
+    bluetooth_status = state.get("bluetooth_status", "unknown")
+
+    selected_name = state.get("selected_device_name")
+    connection_message = state.get(
+        "connection_message",
+        "No umbrella connected."
+    )
+
+    # Only show devices whose advertised name identifies U-LOCK.
+    available_devices = []
+
+    for device in state.get("devices", []):
+        device_name = device.get("name", "")
+
+        if "U-LOCK" in device_name.upper():
+            available_devices.append(device)
+
+    # Sort devices by signal strength, strongest first.
+    available_devices.sort(
+        key=lambda device: device.get("rssi", -100),
+        reverse=True,
+    )
+
+    # Build the connection status section.
+    if connected:
+        connection_section = [
+            ft.Row(
+                [
+                    icon_box(
+                        ft.Icons.CHECK_CIRCLE,
+                        GREEN,
+                        tint(GREEN, 0.15),
+                    ),
+                    ft.Column(
+                        [
+                            ft.Text(
+                                selected_name or "U-LOCK",
+                                size=17,
+                                weight=BOLD,
+                                color=TEXT,
+                            ),
+                            ft.Text(
+                                "Successfully connected",
+                                size=12,
+                                color=GREEN,
+                            ),
+                        ],
+                        spacing=3,
+                        expand=True,
+                    ),
+                ],
+                spacing=12,
+            ),
+            ft.Button(
+                "Disconnect",
+                on_click=act["disconnect"],
+            ),
+        ]
+
+    else:
+        # Determine the scan button's appearance and availability.
+        if scan_status == "scanning":
+            scan_label = "Scanning for devices..."
+        elif scan_status == "connecting":
+            scan_label = "Connecting..."
+        else:
+            scan_label = "Scan for U-LOCK"
+
+        scan_disabled = (
+            bluetooth_status != "on"
+            or scan_status in ("scanning", "connecting")
+        )
+
+        connection_section = [
+            ft.Text(
+                connection_message,
+                size=12,
+                color=MUTED,
+            ),
+            ft.Button(
+                scan_label,
+                on_click=act["scan"],
+                disabled=scan_disabled,
+            ),
+        ]
+
+        # Display every discovered U-LOCK device.
+        for device in available_devices:
+            device_id = device.get("device_id")
+            device_name = device.get("name", "Unknown U-LOCK")
+            rssi = device.get("rssi", -100)
+
+            if rssi >= -60:
+                signal_label = "Strong signal"
+            elif rssi >= -80:
+                signal_label = "Moderate signal"
+            else:
+                signal_label = "Weak signal"
+
+            device_card = ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Column(
+                            [
+                                ft.Text(
+                                    device_name,
+                                    size=14,
+                                    weight=BOLD,
+                                    color=TEXT,
+                                ),
+                                ft.Text(
+                                    f"{signal_label} ({rssi} dBm)",
+                                    size=11,
+                                    color=MUTED,
+                                ),
+                            ],
+                            spacing=4,
+                            expand=True,
+                        ),
+                        ft.Button(
+                            "Connect",
+                            on_click=(
+                                lambda e, selected_id=device_id:
+                                act["connect"](selected_id)
+                            ),
+                            disabled=(
+                                not device_id
+                                or scan_status == "connecting"
+                            ),
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    spacing=8,
+                ),
+                padding=12,
+                border=ft.Border.all(
+                    1,
+                    tint("#FFFFFF", 0.12),
+                ),
+                border_radius=12,
+            )
+
+            connection_section.append(device_card)
+
+        # Give the user feedback if scanning found no U-LOCK device.
+        if scan_status == "complete" and not available_devices:
+            connection_section.append(
+                ft.Text(
+                    "No U-LOCK device found. Make sure your umbrella "
+                    "is powered on and try scanning again.",
+                    size=12,
+                    color=AMBER,
+                )
+            )
+
+    return card(
+        ft.Column(
+            [
+                ft.Row(
+                    [
+                        icon_box(
+                            ft.Icons.DEVICES,
+                            ICE,
+                            tint(ICE, 0.15),
+                        ),
+                        ft.Column(
+                            [
+                                small_label("U-LOCK DEVICE"),
+                                ft.Text(
+                                    "Device connection",
+                                    size=16,
+                                    weight=BOLD,
+                                    color=TEXT,
+                                ),
+                            ],
+                            spacing=3,
+                            expand=True,
+                        ),
+                    ],
+                    spacing=12,
+                ),
+                *connection_section,
+            ],
+            spacing=12,
+        )
+    )
+
 def device_screen(state, act):
     message, color = battery_status(state["battery"])
     battery = card(
@@ -495,10 +773,11 @@ def device_screen(state, act):
     )
     drain = ft.Button("Drain battery (test)", on_click=act["drain"])
     return with_gaps([
-        header(state, act),
-        battery,
-        drain,
-        bluetooth_card(state, act),
+    header(state, act),
+    battery,
+    drain,
+    bluetooth_card(state, act),
+    device_connection_card(state, act),
     ])
 
 

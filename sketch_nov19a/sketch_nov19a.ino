@@ -1,18 +1,204 @@
+
+#include <Arduino.h>
 #include <ESP32Servo.h>
 
-Servo servo;
-const int SERVO_PIN = 4;
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
 
-void setup() {
-  servo.attach(SERVO_PIN, 500, 2400);  
-  servo.write(0);                
-  delay(500);
+// ---------------- BLE CONFIGURATION ----------------
+
+#define DEVICE_NAME "U-LOCK"
+
+#define SERVICE_UUID \
+  "12345678-1234-5678-1234-56789abcdef0"
+
+#define WRITE_UUID \
+  "12345678-1234-5678-1234-56789abcdef1"
+
+#define NOTIFY_UUID \
+  "12345678-1234-5678-1234-56789abcdef2"
+
+// ---------------- SERVO CONFIGURATION ----------------
+
+#define SERVO_PIN 4
+
+const int LOCK_ANGLE = 110;
+const int UNLOCK_ANGLE = 20;
+
+Servo servo;
+
+// ---------------- BLE VARIABLES ----------------
+
+BLECharacteristic *notifyCharacteristic = nullptr;
+BLE2902 *notifyDescriptor = nullptr;
+
+// BLE connection tracking
+volatile bool restartAdvertising = false;
+volatile bool phoneConnected = false;
+volatile bool initialStatusPending = false;
+
+// Physical lock-state tracking
+bool isLocked = false;
+
+// Notification management
+bool notificationReady = false;
+
+// ---------------- SERVO FUNCTIONS ----------------
+
+void lockDevice() {
+  servo.write(LOCK_ANGLE);
+
+  Serial.println("[U-LOCK] LOCKED");
+
+  notifyCharacteristic->setValue("LOCKED");
+  notifyCharacteristic->notify();
 }
 
-void loop() {
-  servo.write(110); 
-  delay(2000);     
+void unlockDevice() {
+  servo.write(UNLOCK_ANGLE);
 
-  servo.write(20);  
-  delay(2000);     
+  Serial.println("[U-LOCK] UNLOCKED");
+
+  notifyCharacteristic->setValue("UNLOCKED");
+  notifyCharacteristic->notify();
+}
+
+// ---------------- BLE CALLBACKS ----------------
+
+class ServerCallbacks : public BLEServerCallbacks {
+
+  void onConnect(BLEServer *server) override {
+    Serial.println("[BLE] Phone connected!");
+  }
+
+  void onDisconnect(BLEServer *server) override {
+    Serial.println("[BLE] Phone disconnected!");
+    restartAdvertising = true;
+  }
+};
+
+
+class WriteCallbacks : public BLECharacteristicCallbacks {
+
+  void onWrite(BLECharacteristic *characteristic) override {
+
+    String command = characteristic->getValue();
+
+    Serial.println("\n========== BLE DEBUG ==========");
+
+    Serial.print("Raw command: [");
+    Serial.print(command);
+    Serial.println("]");
+
+    Serial.print("Command length: ");
+    Serial.println(command.length());
+
+    Serial.print("HEX values: ");
+
+    for (int i = 0; i < command.length(); i++) {
+      Serial.printf("%02X ", (uint8_t)command[i]);
+    }
+
+    Serial.println();
+
+    command.trim();
+    command.toUpperCase();
+
+    Serial.print("Processed command: [");
+    Serial.print(command);
+    Serial.println("]");
+
+    if (command == "LOCK") {
+      lockDevice();
+    }
+    else if (command == "UNLOCK") {
+      unlockDevice();
+    }
+    else {
+      Serial.println("[BLE] UNKNOWN COMMAND!");
+    }
+
+    Serial.println("===============================");
+  }
+};
+
+
+// ---------------- SETUP ----------------
+
+void setup() {
+
+  Serial.begin(115200);
+
+  Serial.println();
+  Serial.println("========== U-LOCK STARTING ==========");
+
+  // Initialize servo
+  servo.setPeriodHertz(50);
+  servo.attach(SERVO_PIN, 500, 2400);
+
+  // Start in unlocked position
+  servo.write(UNLOCK_ANGLE);
+
+  Serial.println("[SERVO] Initialized");
+
+  // Initialize BLE
+  BLEDevice::init(DEVICE_NAME);
+
+  BLEServer *server = BLEDevice::createServer();
+  server->setCallbacks(new ServerCallbacks());
+
+  BLEService *service = server->createService(SERVICE_UUID);
+
+  // Write characteristic: receives LOCK / UNLOCK
+  BLECharacteristic *writeCharacteristic =
+      service->createCharacteristic(
+        WRITE_UUID,
+        BLECharacteristic::PROPERTY_WRITE
+      );
+
+  writeCharacteristic->setCallbacks(new WriteCallbacks());
+
+  // Notify characteristic: sends status back to phone
+  notifyCharacteristic =
+      service->createCharacteristic(
+        NOTIFY_UUID,
+        BLECharacteristic::PROPERTY_NOTIFY
+      );
+
+  notifyCharacteristic->addDescriptor(new BLE2902());
+
+  // Start BLE service
+  service->start();
+
+  // Start advertising
+  BLEAdvertising *advertising = BLEDevice::getAdvertising();
+
+  advertising->addServiceUUID(SERVICE_UUID);
+  advertising->setScanResponse(true);
+
+  BLEDevice::startAdvertising();
+
+  Serial.println("[BLE] Device name: U-LOCK");
+  Serial.println("[BLE] Advertising started!");
+  Serial.println("====================================");
+}
+
+// ---------------- MAIN LOOP ----------------
+
+void loop() {
+
+  if (restartAdvertising) {
+
+    delay(500);
+
+    BLEDevice::startAdvertising();
+
+    Serial.println("[BLE] Advertising restarted!");
+
+    restartAdvertising = false;
+  }
+
+  delay(20);
 }
