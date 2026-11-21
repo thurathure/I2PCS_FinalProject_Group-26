@@ -5,7 +5,7 @@ description = "U-Lock smart umbrella application"
 requires-python = ">=3.10"
 dependencies = [
     "flet>=1.1.2",
-    "flet-ulock-ble @ file:///C:/Git/I2P%20Final%20Project%202026/app/dist/flet_ulock_ble-0.1.0-py3-none-any.whl",
+    "flet-ulock-ble @ git+https://github.com/thurathure/I2PCS_FinalProject_Group-26.git@main#subdirectory=app",
 ]
 
 [tool.flet]
