@@ -7,6 +7,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
   flutter_blue_plus_winrt
   pasteboard
+  permission_handler_windows
   screen_retriever_windows
   serious_python_windows
   share_plus

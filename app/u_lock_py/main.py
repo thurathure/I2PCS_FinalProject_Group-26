@@ -6,12 +6,33 @@ def main(page: ft.Page):
     page.title = "U-Lock"
     page.padding = 0
     page.theme_mode = ft.ThemeMode.DARK
-    page.window.width = 400     # phone-sized preview on desktop
+    page.window.width = 400
     page.window.height = 860
 
+    
+    ble_ready = False
+
+    def on_ble_channel_open(e):
+        nonlocal ble_ready
+        ble_ready = True
+        print("BLE DataChannel is ready")
+
+    ble = FletUlockBle(
+        on_data_channel_open=on_ble_channel_open
+    )
     umbrella = FakeUmbrella()
-    ble = FletUlockBle()
     root = ft.Container(expand=True)
+
+    def on_test_bluetooth(e):
+        if not ble_ready:
+            print("BLE DataChannel is not ready yet")
+            return
+
+        try:
+            ble.check_bluetooth()
+            print("Bluetooth state check requested")
+        except Exception as error:
+            print(f"Bluetooth check error: {error}")
 
     def render():
         s = dict(state)
@@ -71,8 +92,13 @@ def main(page: ft.Page):
     }
 
     page.add(ft.SafeArea(content=root, expand=True))
+    page.add(
+        ft.Button(
+            content=ft.Text("Check Bluetooth"),
+            on_click=on_test_bluetooth,
+        )
+    )
     page.add(ble)
     render()
-
 
 ft.run(main)
