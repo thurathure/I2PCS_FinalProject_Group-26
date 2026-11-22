@@ -1,7 +1,7 @@
 
 #include <Arduino.h>
 #include <ESP32Servo.h>
-
+#include <Preferences.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
@@ -29,7 +29,11 @@ const int UNLOCK_ANGLE = 20;
 
 Servo servo;
 
-// ---------------- BLE VARIABLES ----------------
+// ---------------- PERSISTENT STORAGE ----------------
+
+Preferences preferences;
+bool storageReady = false;
+
 // ---------------- BLE VARIABLES ----------------
 
 BLECharacteristic *notifyCharacteristic = nullptr;
@@ -68,13 +72,38 @@ void notifyLockState() {
   Serial.print("[BLE] Current lock state sent: ");
   Serial.println(currentState);
 }
+// ---------------- STORAGE FUNCTIONS ----------------
 
+bool saveLockState(bool locked) {
+
+  if (!storageReady) {
+    Serial.println("[STORAGE] ERROR: Storage is not ready!");
+    return false;
+  }
+
+  size_t bytesWritten = preferences.putBool("locked", locked);
+
+  if (bytesWritten != sizeof(bool)) {
+    Serial.println("[STORAGE] ERROR: Failed to save lock state!");
+    return false;
+  }
+
+  Serial.print("[STORAGE] Saved state: ");
+  Serial.println(locked ? "LOCKED" : "UNLOCKED");
+
+  return true;
+}
 // ---------------- SERVO FUNCTIONS ----------------
 
 void lockDevice() {
 
-  servo.write(LOCK_ANGLE);
+  if (!saveLockState(true)) {
+    Serial.println("[U-LOCK] LOCK command cancelled.");
+    return;
+  }
+
   isLocked = true;
+  servo.write(LOCK_ANGLE);
 
   Serial.println("[U-LOCK] LOCKED");
 
@@ -83,8 +112,13 @@ void lockDevice() {
 
 void unlockDevice() {
 
-  servo.write(UNLOCK_ANGLE);
+  if (!saveLockState(false)) {
+    Serial.println("[U-LOCK] UNLOCK command cancelled.");
+    return;
+  }
+
   isLocked = false;
+  servo.write(UNLOCK_ANGLE);
 
   Serial.println("[U-LOCK] UNLOCKED");
 
@@ -226,14 +260,33 @@ void setup() {
   Serial.println();
   Serial.println("========== U-LOCK STARTING ==========");
 
-  // Initialize servo
+  // Initialize persistent storage
+  storageReady = preferences.begin("ulock", false);
+
+  if (!storageReady) {
+    Serial.println("[STORAGE] FATAL: Cannot initialize storage!");
+    while (true) {
+      delay(1000);
+    }
+  }
+
+  bool hasSavedState = preferences.isKey("locked");
+
+  isLocked = preferences.getBool("locked", false);
+
+  if (hasSavedState) {
+    Serial.print("[STORAGE] Restored state: ");
+    Serial.println(isLocked ? "LOCKED" : "UNLOCKED");
+  } else {
+    Serial.println("[STORAGE] First startup. Defaulting to UNLOCKED.");
+  }
+
+  // Initialize servo at the restored position
   servo.setPeriodHertz(50);
+  servo.write(isLocked ? LOCK_ANGLE : UNLOCK_ANGLE);
   servo.attach(SERVO_PIN, 500, 2400);
 
-  // Start in unlocked position
-  servo.write(UNLOCK_ANGLE);
-
-  Serial.println("[SERVO] Initialized");
+  Serial.println("[SERVO] Initialized at restored position");
 
   // Initialize BLE
   BLEDevice::init(DEVICE_NAME);
