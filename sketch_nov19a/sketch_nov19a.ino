@@ -30,6 +30,7 @@ const int UNLOCK_ANGLE = 20;
 Servo servo;
 
 // ---------------- BLE VARIABLES ----------------
+// ---------------- BLE VARIABLES ----------------
 
 BLECharacteristic *notifyCharacteristic = nullptr;
 BLE2902 *notifyDescriptor = nullptr;
@@ -39,30 +40,54 @@ volatile bool restartAdvertising = false;
 volatile bool phoneConnected = false;
 volatile bool initialStatusPending = false;
 
-// Physical lock-state tracking
+// Current commanded lock state
+// false = unlocked, true = locked
 bool isLocked = false;
 
-// Notification management
-bool notificationReady = false;
+// ---------------- NOTIFICATION FUNCTIONS ----------------
+
+void notifyLockState() {
+
+  if (!phoneConnected ||
+      notifyCharacteristic == nullptr ||
+      notifyDescriptor == nullptr) {
+    return;
+  }
+
+  if (!notifyDescriptor->getNotifications()) {
+    Serial.println("[BLE] Notifications are not enabled.");
+    return;
+  }
+
+  const char *currentState = isLocked ? "LOCKED" : "UNLOCKED";
+
+  notifyCharacteristic->setValue(currentState);
+  notifyCharacteristic->notify();
+
+  Serial.print("[BLE] Current lock state sent: ");
+  Serial.println(currentState);
+}
 
 // ---------------- SERVO FUNCTIONS ----------------
 
 void lockDevice() {
+
   servo.write(LOCK_ANGLE);
+  isLocked = true;
 
   Serial.println("[U-LOCK] LOCKED");
 
-  notifyCharacteristic->setValue("LOCKED");
-  notifyCharacteristic->notify();
+  notifyLockState();
 }
 
 void unlockDevice() {
+
   servo.write(UNLOCK_ANGLE);
+  isLocked = false;
 
   Serial.println("[U-LOCK] UNLOCKED");
 
-  notifyCharacteristic->setValue("UNLOCKED");
-  notifyCharacteristic->notify();
+  notifyLockState();
 }
 
 // ---------------- BLE CALLBACKS ----------------
@@ -70,15 +95,25 @@ void unlockDevice() {
 class ServerCallbacks : public BLEServerCallbacks {
 
   void onConnect(BLEServer *server) override {
+
     Serial.println("[BLE] Phone connected!");
+
+    phoneConnected = true;
+    initialStatusPending = true;
+
+    Serial.println("[BLE] Waiting for notification subscription...");
   }
 
   void onDisconnect(BLEServer *server) override {
+
     Serial.println("[BLE] Phone disconnected!");
+
+    phoneConnected = false;
+    initialStatusPending = false;
+
     restartAdvertising = true;
   }
 };
-
 
 class WriteCallbacks : public BLECharacteristicCallbacks {
 
@@ -167,7 +202,12 @@ void setup() {
         BLECharacteristic::PROPERTY_NOTIFY
       );
 
-  notifyCharacteristic->addDescriptor(new BLE2902());
+    // Create and attach the notification descriptor.
+  notifyDescriptor = new BLE2902();
+
+  notifyCharacteristic->addDescriptor(notifyDescriptor);
+
+  Serial.println("[BLE] Notification descriptor initialized.");
 
   // Start BLE service
   service->start();
@@ -189,6 +229,7 @@ void setup() {
 
 void loop() {
 
+  // Restart advertising after the phone disconnects.
   if (restartAdvertising) {
 
     delay(500);
@@ -198,6 +239,20 @@ void loop() {
     Serial.println("[BLE] Advertising restarted!");
 
     restartAdvertising = false;
+  }
+
+  // Wait until Android enables BLE notifications.
+  if (phoneConnected &&
+      initialStatusPending &&
+      notifyDescriptor != nullptr &&
+      notifyDescriptor->getNotifications()) {
+
+    initialStatusPending = false;
+
+    Serial.println("[BLE] Notification subscription detected.");
+
+    // Send the current lock state to the phone.
+    notifyLockState();
   }
 
   delay(20);

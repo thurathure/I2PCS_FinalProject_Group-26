@@ -6,15 +6,11 @@ import 'package:flet/flet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
-const String serviceUuid =
-    "12345678-1234-5678-1234-56789abcdef0";
+const String serviceUuid = "12345678-1234-5678-1234-56789abcdef0";
 
-const String writeUuid =
-    "12345678-1234-5678-1234-56789abcdef1";
+const String writeUuid = "12345678-1234-5678-1234-56789abcdef1";
 
-const String notifyUuid =
-    "12345678-1234-5678-1234-56789abcdef2";
-
+const String notifyUuid = "12345678-1234-5678-1234-56789abcdef2";
 
 class FletUlockBleControl extends StatefulWidget {
   final Control control;
@@ -25,14 +21,10 @@ class FletUlockBleControl extends StatefulWidget {
   });
 
   @override
-  State<FletUlockBleControl> createState() =>
-      _FletUlockBleControlState();
+  State<FletUlockBleControl> createState() => _FletUlockBleControlState();
 }
 
-
-class _FletUlockBleControlState
-    extends State<FletUlockBleControl> {
-
+class _FletUlockBleControlState extends State<FletUlockBleControl> {
   DataChannel? _channel;
   StreamSubscription<Uint8List>? _channelSubscription;
 
@@ -60,7 +52,6 @@ class _FletUlockBleControlState
     });
   }
 
-
   void _sendToPython(Map<String, dynamic> message) {
     if (_channel == null) return;
 
@@ -70,7 +61,6 @@ class _FletUlockBleControlState
       ),
     );
   }
-
 
   Future<void> _handlePythonMessage(Uint8List bytes) async {
     try {
@@ -104,7 +94,7 @@ class _FletUlockBleControlState
     }
   }
 
-    Future<void> _checkBluetooth() async {
+  Future<void> _checkBluetooth() async {
     debugPrint("[U-LOCK BLE] Checking Bluetooth state...");
 
     try {
@@ -188,7 +178,6 @@ class _FletUlockBleControlState
       _sendToPython({
         "type": "bluetooth_ready",
       });
-
     } catch (e) {
       debugPrint("[U-LOCK BLE] Bluetooth check error: $e");
 
@@ -198,32 +187,32 @@ class _FletUlockBleControlState
       });
     }
   }
-  
+
   Future<void> _requestBluetoothPermissions() async {
-  debugPrint("[U-LOCK BLE] Requesting Bluetooth permissions...");
+    debugPrint("[U-LOCK BLE] Requesting Bluetooth permissions...");
 
-  final scanStatus = await Permission.bluetoothScan.request();
-  debugPrint("[U-LOCK BLE] Scan permission: $scanStatus");
+    final scanStatus = await Permission.bluetoothScan.request();
+    debugPrint("[U-LOCK BLE] Scan permission: $scanStatus");
 
-  final connectStatus = await Permission.bluetoothConnect.request();
-  debugPrint("[U-LOCK BLE] Connect permission: $connectStatus");
+    final connectStatus = await Permission.bluetoothConnect.request();
+    debugPrint("[U-LOCK BLE] Connect permission: $connectStatus");
 
-  if (!scanStatus.isGranted || !connectStatus.isGranted) {
-    throw Exception(
-      "Bluetooth permissions denied. "
-      "Please allow Nearby devices permission in Android Settings.",
-    );
-  }
+    if (!scanStatus.isGranted || !connectStatus.isGranted) {
+      throw Exception(
+        "Bluetooth permissions denied. "
+        "Please allow Nearby devices permission in Android Settings.",
+      );
+    }
 
-  debugPrint("[U-LOCK BLE] Both permissions granted!");
+    debugPrint("[U-LOCK BLE] Both permissions granted!");
   }
 
   Future<void> _scan(int timeout) async {
-  await _requestBluetoothPermissions();
+    await _requestBluetoothPermissions();
 
-  if (!await FlutterBluePlus.isSupported) {
-    throw Exception("Bluetooth LE is not supported");
-  }
+    if (!await FlutterBluePlus.isSupported) {
+      throw Exception("Bluetooth LE is not supported");
+    }
 
     _sendToPython({
       "type": "scan_started",
@@ -252,30 +241,29 @@ class _FletUlockBleControlState
       timeout: Duration(seconds: timeout),
     );
 
-await FlutterBluePlus.isScanning
-    .where((scanning) => scanning == false)
-    .first;
+    await FlutterBluePlus.isScanning
+        .where((scanning) => scanning == false)
+        .first;
 
-_sendToPython({
-  "type": "scan_complete",
-});
+    _sendToPython({
+      "type": "scan_complete",
+    });
 
     await _scanSubscription?.cancel();
     _scanSubscription = null;
   }
 
-
   Future<void> _connect(String deviceId) async {
-  await _requestBluetoothPermissions();
+    await _requestBluetoothPermissions();
 
-  _device = BluetoothDevice.fromId(deviceId);
+    _device = BluetoothDevice.fromId(deviceId);
 
-  await _device!.connect(
-    license: License.nonprofit,
-    timeout: const Duration(seconds: 15),
-  );
+    await _device!.connect(
+      license: License.nonprofit,
+      timeout: const Duration(seconds: 15),
+    );
 
-  final services = await _device!.discoverServices();
+    final services = await _device!.discoverServices();
 
     BluetoothCharacteristic? writeChar;
     BluetoothCharacteristic? notifyChar;
@@ -298,17 +286,32 @@ _sendToPython({
       throw Exception("BLE write characteristic not found");
     }
 
+    // Store the write characteristic.
     _writeCharacteristic = writeChar;
 
+    // Tell Python that the BLE connection is ready.
+    // Do this before enabling notifications.
+    _sendToPython({
+      "type": "connected",
+      "device_id": deviceId,
+      "device_name": _device!.platformName,
+    });
+
+    // Listen for incoming ESP32 notifications.
     if (notifyChar != null) {
-      _notifySubscription =
-          notifyChar.onValueReceived.listen((value) {
+      _notifySubscription = notifyChar.onValueReceived.listen((value) {
+        final notification = utf8.decode(
+          value,
+          allowMalformed: true,
+        );
+
         _sendToPython({
           "type": "notification",
-          "data": utf8.decode(value, allowMalformed: true),
+          "data": notification,
         });
       });
 
+      // Enable notifications after Python is informed.
       await notifyChar.setNotifyValue(true);
     }
 
@@ -318,7 +321,6 @@ _sendToPython({
       "device_name": _device!.platformName,
     });
   }
-
 
   Future<void> _write(String command) async {
     if (_writeCharacteristic == null) {
@@ -334,7 +336,6 @@ _sendToPython({
       "command": command,
     });
   }
-
 
   Future<void> _disconnect() async {
     await _notifySubscription?.cancel();
@@ -352,7 +353,6 @@ _sendToPython({
     });
   }
 
-
   @override
   void dispose() {
     _channelSubscription?.cancel();
@@ -363,7 +363,6 @@ _sendToPython({
 
     super.dispose();
   }
-
 
   @override
   Widget build(BuildContext context) {
