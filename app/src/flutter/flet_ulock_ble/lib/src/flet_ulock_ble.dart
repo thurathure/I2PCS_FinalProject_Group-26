@@ -87,6 +87,9 @@ class _FletUlockBleControlState extends State<FletUlockBleControl> {
           break;
       }
     } catch (e) {
+      debugPrint("[U-LOCK BLE] Bluetooth check error: $e");
+      debugPrintStack();
+
       _sendToPython({
         "type": "error",
         "message": e.toString(),
@@ -180,6 +183,7 @@ class _FletUlockBleControlState extends State<FletUlockBleControl> {
       });
     } catch (e) {
       debugPrint("[U-LOCK BLE] Bluetooth check error: $e");
+      debugPrintStack();
 
       _sendToPython({
         "type": "error",
@@ -265,6 +269,19 @@ class _FletUlockBleControlState extends State<FletUlockBleControl> {
 
     final services = await _device!.discoverServices();
 
+    debugPrint("[U-LOCK BLE] Discovered ${services.length} services.");
+
+    for (final service in services) {
+      debugPrint("[U-LOCK BLE] Service: ${service.uuid}");
+
+      for (final characteristic in service.characteristics) {
+        debugPrint(
+          "[U-LOCK BLE] Characteristic: ${characteristic.uuid}, "
+          "Properties: ${characteristic.properties}",
+        );
+      }
+    }
+
     BluetoothCharacteristic? writeChar;
     BluetoothCharacteristic? notifyChar;
 
@@ -298,22 +315,36 @@ class _FletUlockBleControlState extends State<FletUlockBleControl> {
     });
 
     // Listen for incoming ESP32 notifications.
-    if (notifyChar != null) {
-      _notifySubscription = notifyChar.onValueReceived.listen((value) {
+    if (notifyChar == null) {
+      throw Exception("BLE notification characteristic not found");
+    }
+
+    debugPrint("[U-LOCK BLE] Notification characteristic found.");
+
+    _notifySubscription = notifyChar.onValueReceived.listen(
+      (value) {
         final notification = utf8.decode(
           value,
           allowMalformed: true,
         );
 
+        debugPrint("[U-LOCK BLE] Notification received: $notification");
+
         _sendToPython({
           "type": "notification",
           "data": notification,
         });
-      });
+      },
+      onError: (error) {
+        debugPrint("[U-LOCK BLE] Notification stream error: $error");
+      },
+    );
 
-      // Enable notifications after Python is informed.
-      await notifyChar.setNotifyValue(true);
-    }
+    debugPrint("[U-LOCK BLE] Enabling notifications...");
+
+    await notifyChar.setNotifyValue(true);
+
+    debugPrint("[U-LOCK BLE] Notifications enabled successfully.");
 
     _sendToPython({
       "type": "connected",

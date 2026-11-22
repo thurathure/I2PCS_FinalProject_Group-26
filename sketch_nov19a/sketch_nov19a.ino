@@ -39,6 +39,7 @@ BLE2902 *notifyDescriptor = nullptr;
 volatile bool restartAdvertising = false;
 volatile bool phoneConnected = false;
 volatile bool initialStatusPending = false;
+volatile bool notificationsSubscribed = false;
 
 // Current commanded lock state
 // false = unlocked, true = locked
@@ -54,9 +55,9 @@ void notifyLockState() {
     return;
   }
 
-  if (!notifyDescriptor->getNotifications()) {
-    Serial.println("[BLE] Notifications are not enabled.");
-    return;
+  if (!notificationsSubscribed) {
+  Serial.println("[BLE] Notifications are not subscribed.");
+  return;
   }
 
   const char *currentState = isLocked ? "LOCKED" : "UNLOCKED";
@@ -110,7 +111,7 @@ class ServerCallbacks : public BLEServerCallbacks {
 
     phoneConnected = false;
     initialStatusPending = false;
-
+    notificationsSubscribed = false;
     restartAdvertising = true;
   }
 };
@@ -159,6 +160,62 @@ class WriteCallbacks : public BLECharacteristicCallbacks {
   }
 };
 
+class NotifyCallbacks : public BLECharacteristicCallbacks {
+    void onSubscribe(
+    BLECharacteristic *characteristic,
+    ble_gap_conn_desc *desc,
+    uint16_t subValue
+  ) override {
+
+    notificationsSubscribed = (subValue & 0x0001) != 0;
+
+    Serial.print("[BLE SUBSCRIBE] Notification subscription: ");
+    Serial.println(notificationsSubscribed ? "ENABLED" : "DISABLED");
+
+    Serial.print("[BLE SUBSCRIBE] Subscription value: ");
+    Serial.println(subValue);
+  }
+  void onStatus(
+    BLECharacteristic *characteristic,
+    Status status,
+    uint32_t code
+  ) override {
+
+    switch (status) {
+
+      case SUCCESS_NOTIFY:
+        Serial.println("[BLE NOTIFY] SUCCESS_NOTIFY");
+        break;
+
+      case ERROR_NO_CLIENT:
+        Serial.println("[BLE NOTIFY] ERROR_NO_CLIENT");
+        break;
+
+      case ERROR_NO_SUBSCRIBER:
+        Serial.println("[BLE NOTIFY] ERROR_NO_SUBSCRIBER");
+        break;
+
+      case ERROR_NOTIFY_DISABLED:
+        Serial.println("[BLE NOTIFY] ERROR_NOTIFY_DISABLED");
+        break;
+
+      case ERROR_GATT:
+        Serial.printf(
+          "[BLE NOTIFY] ERROR_GATT, code: %lu\n",
+          (unsigned long)code
+        );
+        break;
+
+      default:
+        Serial.printf(
+          "[BLE NOTIFY] Other status: %d, code: %lu\n",
+          (int)status,
+          (unsigned long)code
+        );
+        break;
+    }
+  }
+};
 
 // ---------------- SETUP ----------------
 
@@ -206,6 +263,7 @@ void setup() {
   notifyDescriptor = new BLE2902();
 
   notifyCharacteristic->addDescriptor(notifyDescriptor);
+  notifyCharacteristic->setCallbacks(new NotifyCallbacks());
 
   Serial.println("[BLE] Notification descriptor initialized.");
 
@@ -243,9 +301,8 @@ void loop() {
 
   // Wait until Android enables BLE notifications.
   if (phoneConnected &&
-      initialStatusPending &&
-      notifyDescriptor != nullptr &&
-      notifyDescriptor->getNotifications()) {
+    initialStatusPending &&
+    notificationsSubscribed) {
 
     initialStatusPending = false;
 
