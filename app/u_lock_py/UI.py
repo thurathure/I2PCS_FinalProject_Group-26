@@ -299,7 +299,7 @@ def conditions_card(state, act):
                 ft.Column(
                     [
                         small_label("Local conditions"),
-                        ft.Text(f"Rain expected around {state['rain_time']}", size=14, weight=SEMI, color=TEXT),
+                        ft.Text(f"Rain expected around {state['rain_time']}" if state["rain_time"] else "No rain expected", size=14, weight=SEMI, color=TEXT),
                     ],
                     spacing=2,
                     expand=True,
@@ -313,9 +313,9 @@ def conditions_card(state, act):
         ),
     )
 
-
 def rain_banner(state, act):
-    if not state["banner_visible"] or state["condition"] not in ("rain", "thunderstorm"):
+    rain_likely = state["condition"] in ("rain", "thunderstorm") or state["rain_time"]
+    if not state["banner_visible"] or not rain_likely:
         return None
     body = ft.Column(
         [

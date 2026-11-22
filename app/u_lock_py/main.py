@@ -2,6 +2,7 @@ import asyncio
 import flet as ft
 from UI import *
 from flet_ulock_ble import FletUlockBle 
+from weather_test import get_weather_summary, CITIES
 
 def main(page: ft.Page):
     page.title = "U-Lock"
@@ -146,6 +147,16 @@ def main(page: ft.Page):
         state["tab"] = tab
         render()
 
+    CITY = "Tainan City"
+
+    def load_weather():
+        try:
+            lat, lon = CITIES[CITY]
+            state.update(get_weather_summary(lat, lon))
+            state["location"] = CITY
+        except Exception as ex:
+            print("Weather error:", ex)
+
     act = {
         "toggle": on_toggle,
         "drain": on_drain,
@@ -158,8 +169,11 @@ def main(page: ft.Page):
     page.add(ft.SafeArea(content=root, expand=True))
     page.add(ble)
 
+    load_weather()
+
     page.run_task(poll_ble_messages)
 
     render()
 
-ft.run(main)
+if __name__ == "__main__":
+    ft.run(main)
